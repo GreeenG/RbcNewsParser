@@ -1,0 +1,6 @@
+index:
+    path: /
+    controller: App\Controller\IndexController::index
+renew:
+    path: /renew
+    controller: App\Controller\IndexController::renew
