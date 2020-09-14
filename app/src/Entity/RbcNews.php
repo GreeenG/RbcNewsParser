@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\RbcNewsRepository;
 use Doctrine\ORM\Mapping as ORM;
 use DateTimeImmutable;
+use Exception;
 
 /**
  * @ORM\Entity(repositoryClass=RbcNewsRepository::class)
@@ -12,6 +13,7 @@ use DateTimeImmutable;
 class RbcNews
 {
     const IMAGES_DIR = 'images';
+
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
@@ -56,6 +58,7 @@ class RbcNews
 
     /**
      * RbcNews constructor.
+     *
      * @param                   $originalUrl
      * @param                   $title
      * @param                   $content
@@ -86,7 +89,7 @@ class RbcNews
             $imagePathInfo['extension']);
         try {
             $this->saveImage($url, $localImagePath);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $e->getMessage();
         }
         $this->imageUrl = sprintf('/%s/%s.%s',
@@ -103,12 +106,11 @@ class RbcNews
     {
         if (!file_exists($path)) {
             file_put_contents($path, file_get_contents($url));
-
         }
     }
 
     /**
-     * @return mixed
+     * @return int
      */
     public function getId()
     {
@@ -116,7 +118,7 @@ class RbcNews
     }
 
     /**
-     * @return mixed
+     * @return string
      */
     public function getOriginalUrl()
     {
@@ -124,7 +126,7 @@ class RbcNews
     }
 
     /**
-     * @return mixed
+     * @return string
      */
     public function getTitle()
     {
@@ -132,7 +134,7 @@ class RbcNews
     }
 
     /**
-     * @return mixed
+     * @return string
      */
     public function getOriginalImageUrl()
     {
@@ -140,7 +142,7 @@ class RbcNews
     }
 
     /**
-     * @return mixed
+     * @return string
      */
     public function getImageUrl()
     {
@@ -148,7 +150,7 @@ class RbcNews
     }
 
     /**
-     * @return mixed
+     * @return string
      */
     public function getImageTitle()
     {
@@ -156,7 +158,7 @@ class RbcNews
     }
 
     /**
-     * @return mixed
+     * @return string
      */
     public function getContent()
     {
@@ -170,6 +172,4 @@ class RbcNews
     {
         return $this->timestamp;
     }
-
-
 }
