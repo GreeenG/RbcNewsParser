@@ -14,7 +14,10 @@ class Parser
     private const RBK_URL = 'https://www.rbc.ru/';
     private const NEWS_ELEMENT_CLASS_NAME = 'news-feed__item';
     private const NEWS_LIST_CLASS_NAME = 'js-news-feed-list';
-    private const NEWS_TITLE_SELECTOR = 'h1[itemprop="headline"]';
+    private const NEWS_TITLE_SELECTOR_LIST = [
+        'h1[itemprop="headline"]',
+        'span[itemprop="headline"]'
+    ];
     private const NEWS_CONTENT_SELECTOR = 'div[itemprop="articleBody"] p';
     private const REVIEW_CONTENT_SELECTOR = '.review';
     private const REVIEW_TITLE_SELECTOR = 'h1';
@@ -77,9 +80,13 @@ class Parser
                     if ($isReview = $fullNewsPageCrawler->filter(self::REVIEWS_CONTAINER_SELECTOR)->count()) {
                         $title = $fullNewsPageCrawler->filter(self::REVIEW_TITLE_SELECTOR)->first()->text();
                         $content = $fullNewsPageCrawler->filter(self::REVIEW_CONTENT_SELECTOR)->children()->eq(1)->text();
-                    } elseif ($hasTitle = $fullNewsPageCrawler->filter(self::NEWS_TITLE_SELECTOR)->count()) {
-                        $title = $fullNewsPageCrawler->filter(self::NEWS_TITLE_SELECTOR)->first()->text();
-                        $content = $fullNewsPageCrawler->filter(self::NEWS_CONTENT_SELECTOR)->text();
+                    } elseif ($newsTitle = $this->resolveNewsTitle($fullNewsPageCrawler)) {
+                        $title = $newsTitle;
+                        $contentNodeList = $fullNewsPageCrawler->filter(self::NEWS_CONTENT_SELECTOR);
+                        $content = '';
+                        foreach ($contentNodeList as $contentNode) {
+                            $content .= $contentNode->textContent.' ';
+                        }
                     } else {
                         continue;
                     }
@@ -101,5 +108,20 @@ class Parser
             $this->em->getConnection()->rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * @param Crawler $fullNewsPageCrawler
+     *
+     * @return false|string
+     */
+    private function resolveNewsTitle(Crawler $fullNewsPageCrawler)
+    {
+        foreach (self::NEWS_TITLE_SELECTOR_LIST as $selector) {
+            if ($fullNewsPageCrawler->filter($selector)->count()) {
+                return $fullNewsPageCrawler->filter($selector)->first()->text();
+            }
+        }
+        return false;
     }
 }

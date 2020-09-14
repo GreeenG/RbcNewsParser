@@ -28,7 +28,6 @@ class Loader
             if ($data) {
                 return $data;
             }
-
             curl_close($file);
         } catch (HttpException $e) {
             throw $e;
