@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}Welcome!{% endblock %}</title>
+    <title>{% block title %}RbcNewsParser main page{% endblock %}</title>
     {% block stylesheets %}
         {{ encore_entry_link_tags('app') }}
     {% endblock %}</head>
@@ -21,7 +21,11 @@
                     </div>
                     <div class="newsItem grid1to3">
                         <div class="newsThumb">
-                            <img src="{{ newsItem.imageUrl }}"/>
+                            {% if newsItem.imageUrl %}
+                                <img src="{{ newsItem.imageUrl }}"/>
+                            {% else %}
+                                <img src="/images/no_photo.png"/>
+                            {% endif %}
                         </div>
                         <div class="newsPreview">
                             {% if newsItem.content|length > 200 %}
