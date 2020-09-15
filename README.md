@@ -14,3 +14,5 @@
 >yarn install
 - Для сборки фронтенда:
 >yarn encore dev
+
+Сервис будет доступен по адресу http://localhost:8080/
