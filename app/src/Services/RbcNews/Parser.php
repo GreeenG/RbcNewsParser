@@ -4,7 +4,10 @@ namespace App\Services\RbcNews;
 
 use App\Entity\RbcNews;
 use App\Repository\RbcNewsRepository;
+use Doctrine\DBAL\ConnectionException as ConnectionExceptionAlias;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\OptimisticLockException;
+use Doctrine\ORM\ORMException;
 use Exception;
 use DateTimeImmutable;
 use Symfony\Component\DomCrawler\Crawler;
@@ -61,9 +64,11 @@ class Parser
     /**
      * @return void
      *
-     * @throws \Doctrine\DBAL\ConnectionException
+     * @throws ORMException
+     * @throws OptimisticLockException
+     * @throws ConnectionExceptionAlias
      */
-    public function process()
+    public function process(): void
     {
         $mainPageCrawler = new Crawler($this->loader->getHtmlByUrl(self::RBK_URL));
         $news = $mainPageCrawler->filter(sprintf('.%s .%s', self::NEWS_LIST_CLASS_NAME, self::NEWS_ELEMENT_CLASS_NAME));
@@ -74,34 +79,37 @@ class Parser
                 $newsOriginalUrl = $newsItem->attributes->getNamedItem(self::NEWS_URL_ATTR)->nodeValue;
                 $timestamp = (int)$newsItem->attributes->getNamedItem(self::NEWS_TIMESTAMP_ATTR)->nodeValue;
 
-                if (empty($this->newsRepository->findBy(['originalUrl' => $newsOriginalUrl]))) {
-                    $fullNewsPageCrawler = new Crawler($this->loader->getHtmlByUrl($newsOriginalUrl));
+                $fullNewsPageCrawler = new Crawler($this->loader->getHtmlByUrl($newsOriginalUrl));
 
-                    if ($isReview = $fullNewsPageCrawler->filter(self::REVIEWS_CONTAINER_SELECTOR)->count()) {
-                        $title = $fullNewsPageCrawler->filter(self::REVIEW_TITLE_SELECTOR)->first()->text();
-                        $content = $fullNewsPageCrawler->filter(self::REVIEW_CONTENT_SELECTOR)->children()->eq(1)->text();
-                    } elseif ($newsTitle = $this->resolveNewsTitle($fullNewsPageCrawler)) {
-                        $title = $newsTitle;
-                        $contentNodeList = $fullNewsPageCrawler->filter(self::NEWS_CONTENT_SELECTOR);
-                        $content = '';
-                        foreach ($contentNodeList as $contentNode) {
-                            $content .= $contentNode->textContent.' ';
-                        }
-                    } else {
-                        continue;
+                if ($isReview = $fullNewsPageCrawler->filter(self::REVIEWS_CONTAINER_SELECTOR)->count()) {
+                    $title = $fullNewsPageCrawler->filter(self::REVIEW_TITLE_SELECTOR)->first()->text();
+                    $content = $fullNewsPageCrawler->filter(self::REVIEW_CONTENT_SELECTOR)->children()->eq(1)->text();
+                } elseif ($newsTitle = $this->resolveNewsTitle($fullNewsPageCrawler)) {
+                    $title = $newsTitle;
+                    $contentNodeList = $fullNewsPageCrawler->filter(self::NEWS_CONTENT_SELECTOR);
+                    $content = '';
+                    foreach ($contentNodeList as $contentNode) {
+                        $content .= $contentNode->textContent . ' ';
                     }
-
-                    $newsDate = new DateTimeImmutable(false);
-                    $newsToStore = new RbcNews($newsOriginalUrl, $title, $content, $newsDate->setTimestamp($timestamp));
-
-                    $imageCrawler = $fullNewsPageCrawler->filter(self::NEWS_IMG_SELECTOR);
-
-                    if ($hasImage = $imageCrawler->count()) {
-                        $newsToStore->setImageOptions($imageCrawler->first()->attr(self::NEWS_IMAGE_URL_ATTR), $imageCrawler->first()->attr(self::NEWS_IMAGE_TITLE_ATTR));
-                    }
-
-                    $this->newsRepository->save($newsToStore);
+                } else {
+                    continue;
                 }
+
+                $newsDate = new DateTimeImmutable(false);
+                $newsToStore = new RbcNews($newsOriginalUrl, $title, $content, $newsDate->setTimestamp($timestamp));
+
+                $imageCrawler = $fullNewsPageCrawler->filter(self::NEWS_IMG_SELECTOR);
+
+                if ($hasImage = $imageCrawler->count()) {
+                    $newsToStore->setImageOptions($imageCrawler->first()->attr(self::NEWS_IMAGE_URL_ATTR), $imageCrawler->first()->attr(self::NEWS_IMAGE_TITLE_ATTR));
+                }
+
+                if (null === $existingNews = $this->newsRepository->findOneBy(['originalUrl' => $newsOriginalUrl])) {
+                    $this->newsRepository->save($newsToStore);
+                } else {
+                    $this->newsRepository->update($existingNews,$newsToStore);
+                }
+
             }
             $this->em->getConnection()->commit();
         } catch (Exception $e) {

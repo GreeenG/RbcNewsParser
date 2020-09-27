@@ -2,6 +2,8 @@
 
 namespace App\Services\RbcNews;
 
+use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class Loader
@@ -9,11 +11,11 @@ class Loader
     /**
      * @param string $url
      *
-     * @return string
+     * @return string|null
      *
      * @throws HttpException
      */
-    public function getHtmlByUrl($url)
+    public function getHtmlByUrl(string $url): ?string
     {
         $file = curl_init($url);
 
@@ -25,10 +27,16 @@ class Loader
 
         try {
             $data = curl_exec($file);
-            if ($data) {
+            if (Response::HTTP_OK === $httpCode = curl_getinfo($file, CURLINFO_RESPONSE_CODE)) {
                 return $data;
             }
             curl_close($file);
+
+            if (0 === $httpCode) {
+                throw new RuntimeException('Cannot connect to ' . $url);
+            }
+
+            throw new HttpException($httpCode);
         } catch (HttpException $e) {
             throw $e;
         }

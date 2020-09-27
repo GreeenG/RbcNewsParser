@@ -3,11 +3,16 @@
 namespace App\Controller;
 
 use App\Repository\RbcNewsRepository;
-use  App\Services\RbcNews\Loader;
-use  App\Services\RbcNews\Parser;
+use App\Services\RbcNews\Loader;
+use App\Services\RbcNews\Parser;
+use Doctrine\DBAL\ConnectionException;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\OptimisticLockException as OptimisticLockExceptionAlias;
+use Doctrine\ORM\ORMException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Config\Definition\Exception\Exception;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
 class IndexController extends AbstractController
@@ -36,14 +41,19 @@ class IndexController extends AbstractController
     }
 
     /**
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function index()
+    public function index(): Response
     {
         $news = $this->newsRepository->findBy([], ['timestamp' => 'DESC'], 15);
 
         if (empty($news)) {
-            $this->updateNews();
+            try {
+                $this->updateNews();
+            } catch (ConnectionException $e) {
+            } catch (OptimisticLockExceptionAlias $e) {
+            } catch (ORMException $e) {
+            }
             $news = $this->newsRepository->findBy([], ['timestamp' => 'DESC'], 15);
         }
 
@@ -51,11 +61,16 @@ class IndexController extends AbstractController
     }
 
     /**
-     * @return \Symfony\Component\HttpFoundation\RedirectResponse
+     * @return RedirectResponse
      */
-    public function renew()
+    public function renew(): RedirectResponse
     {
-        $this->updateNews();
+        try {
+            $this->updateNews();
+        } catch (ConnectionException $e) {
+        } catch (OptimisticLockExceptionAlias $e) {
+        } catch (ORMException $e) {
+        }
 
         return $this->redirectToRoute('index');
     }
@@ -63,9 +78,11 @@ class IndexController extends AbstractController
     /**
      * @Route("/news/show/{id}", methods={"GET","HEAD"})
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @param int $id
+     *
+     * @return Response
      */
-    public function show(int $id)
+    public function show(int $id): Response
     {
         $news = $this->newsRepository->find($id);
         return $this->render('show.html.twig', ['news' => $news]);
@@ -73,10 +90,12 @@ class IndexController extends AbstractController
 
     /**
      * @return void
+     * @throws ORMException
+     * @throws OptimisticLockExceptionAlias
      *
-     * @throws Exception
+     * @throws ConnectionException
      */
-    private function updateNews()
+    private function updateNews(): void
     {
         try {
             $this->parser->process();

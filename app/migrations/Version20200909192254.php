@@ -12,11 +12,6 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20200909192254 extends AbstractMigration
 {
-    public function getDescription(): string
-    {
-        return '';
-    }
-
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
@@ -30,6 +25,7 @@ final class Version20200909192254 extends AbstractMigration
             image_title VARCHAR(1000) DEFAULT NULL, 
             content VARCHAR(100000) NOT NULL,
             timestamp TIMESTAMP(10) NOT NULL, 
+            updated_at TIMESTAMP(10) DEFAULT NULL,
             PRIMARY KEY(id))'
         );
     }
